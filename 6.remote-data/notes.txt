@@ -1,0 +1,5 @@
+go mod init github.com/myuser/foldermaybe
+go get github.com/jackc/pgx/v5
+https://www.postgresqltutorial.com/postgresql-tutorial/postgresql-foreign-key/
+> docker exec -it Postgres_run_name bash
+# psql -h localhost -U db_ouzer the_DB

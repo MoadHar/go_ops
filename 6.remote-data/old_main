@@ -1,0 +1,29 @@
+package main
+
+import (
+	"context"
+	"fmt"
+	"github.com/jackc/pgx/v5"
+	"os"
+)
+
+func main() {
+	urldb := "postgres://db_ouzer:dbouzer_bbass_369@localhost:5432/the_DB"
+	//conn, err := pgx.Connect(context.Background(), os.Getenv("DB_URL"))
+	conn, err := pgx.Connect(context.Background(), urldb)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "[-] unable to connect db: %v\n", err)
+		os.Exit(1)
+	}
+	defer conn.Close(context.Background())
+
+	var name string
+	var phone string
+	err = conn.QueryRow(context.Background(), "select contact_name, phone from contacts where user_id=$1", 1).Scan(&name, &phone)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "queryrow failed: %v\n", err)
+		os.Exit(2)
+	}
+	fmt.Println(name, phone)
+
+}
