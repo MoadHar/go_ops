@@ -1,4 +1,4 @@
-package main
+package streamz
 
 import (
 	"bufio"
@@ -30,20 +30,17 @@ func main() {
 	}
 	defer f.Close()
 	// start decoding the file one line at a time
-	ch := decodeFilevuep(ctx, f)
+	ch := DecodeFilevuep(ctx, f)
 
 	// read each line of output and write record to screen
 	for fileview := range ch {
 		if fileview.err != nil {
-			//fmt.Println("Error: ", fileview.err)
-			//panic(fileview.err)
 			continue
 		}
-		//fmt.Println(fileview)
 	}
 }
 
-func decodeFilevuep(ctx context.Context, r io.Reader) chan Filevuep {
+func DecodeFilevuep(ctx context.Context, r io.Reader) chan Filevuep {
 	ch := make(chan Filevuep, 1)
 	go func() {
 		defer close(ch)
@@ -54,7 +51,7 @@ func decodeFilevuep(ctx context.Context, r io.Reader) chan Filevuep {
 				fmt.Println("ctx.err")
 				return
 			}
-			v, err := getViewpRec(scanner.Text())
+			v, err := GetViewpRec(scanner.Text())
 			if err != nil {
 				v.err = err
 				fmt.Println("get view err")
@@ -69,24 +66,16 @@ func decodeFilevuep(ctx context.Context, r io.Reader) chan Filevuep {
 	return ch
 }
 
-func getViewpRec(line string) (Filevuep, error) {
-	//splited := strings.Split(line, " ")
+func GetViewpRec(line string) (Filevuep, error) {
 	splited := strings.Fields(line)
-	//fmt.Println(splited)
 	if len(splited) != 5 {
-		//return Filevuep{}, fmt.Errorf("record(%s) was not correct", line)
-		//fmt.Printf("[-]: %s", line)
 		return Filevuep{err: fmt.Errorf("error: %s", line)}, nil
 	} else {
 		pos, err := strconv.Atoi(splited[4])
 		if err != nil {
-			//return Filevuep{}, fmt.Errorf("record(%s) non numeric value position", line)
-			//fmt.Printf("[-]: %s", line)
 			return Filevuep{err: fmt.Errorf("error: %s", line)}, nil
 
 		} else {
-			//fmt.Println(len(splited))
-			//fmt.Println(strings.TrimSpace(splited[0]))
 			v := Filevuep{
 				Table:  strings.TrimSpace(splited[0]),
 				View:   strings.TrimSpace(splited[1]),

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -18,8 +19,8 @@ type Storage struct {
 
 func NewStorage(ctx context.Context, conn *sql.DB) *Storage {
 	//res_stmt, err := conn.PrepareContext(ctx, `select "file", "view" FROM viewsfile WHERE "file" = $1`)
-	sel_stmt, err := conn.PrepareContext(ctx, `select "file", "view", "access", "path", "pathfile" FROM viewsfile WHERE "access" = $1 and "file" = "$2"`)
-	ins_stmt, err := conn.PrepareContext(ctx, `insert into viewsfile (file, view, access, path, position, pathfile) 
+	sel_stmt, err := conn.PrepareContext(ctx, `select "file", "view", "access", "path", "position", "pathfile" FROM viewsfile WHERE "access" = $1 and "file" = $2`)
+	ins_stmt, err := conn.PrepareContext(ctx, `insert into viewsfile (file, view, access, path, position, pathfile)
 	values ($1, $2, $3, $4, $5, $6)`)
 	if err != nil {
 		fmt.Println("[-]: ", err)
@@ -34,21 +35,32 @@ func NewStorage(ctx context.Context, conn *sql.DB) *Storage {
 
 func (s *Storage) getFileView(ctx context.Context, filename string, access string) ([]ViewsFile, error) {
 	recs := []ViewsFile{}
-	//rows, err := s.getFileStmt.QueryRow(filename).Scan(&f)
-	rows, _ := s.getFileStmt.QueryContext(ctx, access, filename)
-	defer rows.Close()
-	for rows.Next() {
-		rec := ViewsFile{}
-		if err := rows.Scan(&rec); err != nil {
-			return nil, err
+	fmt.Println("<getFileView>")
+	fmt.Println("ctx: ", ctx)
+	select {
+	case <-ctx.Done():
+		fmt.Println("ctx is Done")
+	default:
+		//rows, err := s.getFileStmt.QueryRow(filename).Scan(&f)
+		rows, err := s.getFileStmt.QueryContext(ctx, access, filename)
+		fmt.Println("ahaaa err: ", err)
+		defer rows.Close()
+		for rows.Next() {
+			fmt.Println("fetching")
+			rec := ViewsFile{}
+			if err := rows.Scan(&rec.file, &rec.view, &rec.access, &rec.path, &rec.order, &rec.pathfile); err != nil {
+				fmt.Println("get err: ", err)
+				return nil, err
+			}
+			recs = append(recs, rec)
 		}
-		recs = append(recs, rec)
+		return recs, nil
 	}
-	return recs, nil
+	return nil, errors.New("closed ctx")
 }
 func (s *Storage) insertViews(ctx context.Context, p_viewfile ViewsFile) error {
 	fmt.Println(p_viewfile)
-	ret, err := s.insViewsStmt.ExecContext(
+	_, err := s.insViewsStmt.ExecContext(
 		ctx,
 		p_viewfile.file,
 		p_viewfile.view,
@@ -57,7 +69,6 @@ func (s *Storage) insertViews(ctx context.Context, p_viewfile ViewsFile) error {
 		p_viewfile.order,
 		p_viewfile.pathfile,
 	)
-	fmt.Println(ret)
 	return err
 }
 
@@ -83,10 +94,11 @@ func main() {
 		fmt.Println("connect to db error: ", err)
 	}
 	defer conn.Close()
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancelctx := context.WithTimeout(context.Background(), 15*time.Second)
 	if err := conn.PingContext(ctx); err != nil {
 		fmt.Println(err)
 	}
+
 	contact, err := GetContact(ctx, *conn, 1)
 	if err != nil {
 		fmt.Fprint(os.Stderr, "[-] aaaa error: ", err)
@@ -111,10 +123,17 @@ func main() {
 	ret = store.insertViews(ctx, f)
 	fmt.Println(ret)
 
-	ret2, err := store.getFileView(ctx, "F100", "LINKPATH")
+	//store := NewStorage(ctx, conn)
+	if err := ctx.Err(); err != nil {
+		fmt.Println("err ctx: ", err)
+	}
+	ret2, err := store.getFileView(ctx, "F300", "LINKPATH")
+	if err != nil {
+		fmt.Println("err fetching: ", err)
+	}
 	fmt.Println(ret2, err)
 
-	cancel()
+	cancelctx()
 }
 
 func GetContact(ctx context.Context, conn sql.DB, id int) (ContactRec, error) {
