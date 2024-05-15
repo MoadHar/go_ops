@@ -3,7 +3,7 @@ plugins:
   - name: go
     out: ./
     opt:
-      -paths=source_relative
+      - paths=source_relative
   - name: go-grpc
     out: ./
     opt:
